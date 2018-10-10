@@ -1,5 +1,5 @@
 # infinite
-OSXFuse interface for Azure blob storage. Allows extending your Mac storage infinitely into cloud.
+OSXFuse interface for Azure blob storage. Allows extending your Mac OS storage infinitely into cloud.
 
 # dependencies
 fusepy
