@@ -20,7 +20,7 @@ Download the latest release.
 # why
 1. For moving files to the cloud seamlessly. I mainly use these files for training ML models on cloud. 
 2. Dropbox is expensive :(. I want a place to store my files longer term. With Azure storage archive tier 100GB data costs < 0.2$ per month. 
-3. Learning FUSE. 
+3. For learning FUSE which is cool. 
 
 # how
 Fill-in your Azure storage credentials in the beginning of azurefiles.py. 
