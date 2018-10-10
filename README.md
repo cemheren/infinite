@@ -31,5 +31,8 @@ Create mount and cache folders whereever in your filesystem. Run the azurefiles.
 
 > sudo python3 azurefiles.py cache mount
 
+# is it stable? 
+No. I will make it much better in couple of weeks. 
+
 # notes
 This project is not affiliated with Microsoft or Azure. It's by any means not supported officially.
