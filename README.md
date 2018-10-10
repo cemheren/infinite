@@ -8,6 +8,7 @@ fusepy
 azure storage python libraries
 https://github.com/Azure/azure-storage-python
 > pip install azure
+
 > pip install azure-storage-blob
 
 You also need to create an Azure storage account on https://portal.azure.com. I don't bother supporting s3 because Azure storage is significantly cheaper. 
@@ -25,7 +26,9 @@ Download the latest release.
 Fill-in your Azure storage credentials in the beginning of azurefiles.py. 
 Create mount and cache folders whereever in your filesystem. Run the azurefiles.py with mount and cache folder arguments. 
 > mkdir mount 
+
 > mkdir cache
+
 > sudo python3 azurefiles.py cache mount
 
 # notes
