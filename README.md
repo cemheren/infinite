@@ -34,5 +34,10 @@ Create mount and cache folders whereever in your filesystem. Run the azurefiles.
 # is it stable? 
 Somewhat. I wouldn't try it on anything you won't be ok with losing.  
 
+# screenshots
+Sample blob I've been experimenting on, supports somewhat harder scenarios such as preview. 
+
+<img src="https://github.com/cemheren/infinite/blob/master/screenshots/Screenshot%202018-10-20%2020.39.11.png" width="700">
+
 # notes
 This project is not affiliated with Microsoft or Azure. It's by any means not supported officially.
