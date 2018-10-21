@@ -2,6 +2,7 @@
 from __future__ import print_function, absolute_import, division
 
 import logging
+import datetime
 import os
 
 from errno import EACCES
@@ -12,13 +13,16 @@ from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 from azure.storage.common import CloudStorageAccount
 
 class Loopback(LoggingMixIn, Operations):
-    def __init__(self, root):
+    def __init__(self, root, csa):
         self.root = realpath(root)
         self.rwlock = Lock()
-        self.account = CloudStorageAccount(account_name="",
-                                           account_key="")
+        self.account = csa
         self.service = self.account.create_block_blob_service()
         self.defaultContainer = "default"
+
+        self.lastreadblobs = [];
+        self.lastreadblobpaths = [];
+        self.pathswritten = []
 
     def __call__(self, op, path, *args):
         return super(Loopback, self).__call__(op, path.strip('/').strip('.').strip('_'), *args)
@@ -28,8 +32,21 @@ class Loopback(LoggingMixIn, Operations):
 
     def access(self, path, mode):
         print("access " + path)
-        if not os.access(self.getcachepath(path), mode):
-            raise FuseOSError(EACCES)
+        if self.lastreadblobpaths == []:
+            print("access because lastreadblobpaths empty")
+            return
+
+        if path in self.lastreadblobpaths:
+            print("access is in lastreadblobpaths")
+            return
+
+        # if in cache
+        if os.access(self.getcachepath(path), mode):
+            print("access is in cache")
+            return
+
+        print("access error")
+        raise FuseOSError(EACCES)
 
     def chmod(self, path, mode):
         print("chmod")
@@ -59,18 +76,31 @@ class Loopback(LoggingMixIn, Operations):
 
     def getattr(self, path, fh=None):
         print("getattr " + path)
-        # st = os.lstat(self.getcachepath(path))
-        # print(st)
 
-        # b = dict((key, getattr(st, key)) for key in (
-        #     'st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime',
-        #     'st_nlink', 'st_size', 'st_uid'))
+        if os.path.exists(self.getcachepath(path)):
+            print("getattr from cache")
+            st = os.lstat(self.getcachepath(path))
+            return dict((key, getattr(st, key)) for key in (
+                'st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime',
+                'st_nlink', 'st_size', 'st_uid'))
+        else:
+            # get from blob
+            filefound = next((x for x in self.lastreadblobs if x.name == path), {})
+            if filefound != {}:
+                content_length = filefound.properties.content_length
+                last_modified = filefound.properties.last_modified.timestamp()
+                creation_time = filefound.properties.creation_time.timestamp()
 
+                b = {"st_atime": 1539150234.3898132, 'st_ctime' : creation_time, 'st_gid': 20, 'st_mode': 33261,
+                     'st_mtime': last_modified, 'st_nlink': 1, 'st_size': content_length, 'st_uid': 501}
 
-        b = {"st_atime": 1539150234.3898132, 'st_ctime' : 1539147774.3190603, 'st_gid': 20, 'st_mode': 16877,
-             'st_mtime': 1539147774.3190603, 'st_nlink': 3, 'st_size': 96, 'st_uid': 5011}
+                return b
 
-        return b
+            # return dummy stuff
+            st = os.lstat(self.getcachepath(path))
+            return dict((key, getattr(st, key)) for key in (
+                'st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime',
+                'st_nlink', 'st_size', 'st_uid'))
 
     getxattr = None
 
@@ -90,7 +120,15 @@ class Loopback(LoggingMixIn, Operations):
 
     def open(self, path, flags):
         print("open " + path)
-        return os.open(self.getcachepath(path), flags)
+
+        # check cache
+        if os.path.exists(self.getcachepath(path)):
+            print("file is in cache")
+            return os.open(self.getcachepath(path), flags)
+        else:
+            print("file not in cache " + self.getcachepath(path))
+            self.service.get_blob_to_path(self.defaultContainer, path, self.getcachepath(path))
+            return os.open(self.getcachepath(path), flags)
 
     def read(self, path, size, offset, fh):
         print("read " + path)
@@ -99,13 +137,19 @@ class Loopback(LoggingMixIn, Operations):
             return os.read(fh, size)
 
     def readdir(self, path, fh):
-        print('readdir ' + path)
-        blobs = list(self.service.list_blobs(self.defaultContainer, prefix=path))
-        # for blob in blobs:
-            # print(blob.name)  # blob1, blob2
+        # check cache
+        if self.lastreadblobpaths != [] and os.path.exists(self.getcachepath(path)):
+            print("readdir is in cache")
+            return ['.', '..', ] + os.listdir(self.getcachepath(path))
+        else:
+            print('readdir ' + path)
+            blobs = list(self.service.list_blobs(self.defaultContainer, prefix=path))
+            self.lastreadblobs = blobs
+            self.lastreadblobpaths = [x.name for x in blobs];
+            # for blob in blobs:
+                # print(blob.name)  # blob1, blob2
 
-        return ['.', '..'] + [x.name for x in blobs];
-        # x = ['.', '..', ] + os.listdir(self.getcachepath(path)) # for cache
+            return ['.', '..'] + self.lastreadblobpaths;
 
     def readlink(self, path):
         print("readlink")
@@ -113,7 +157,10 @@ class Loopback(LoggingMixIn, Operations):
 
     def release(self, path, fh):
         print("release")
-        self.service.create_blob_from_path(self.defaultContainer, path, self.getcachepath(path))
+        if path in self.pathswritten:
+            self.service.create_blob_from_path(self.defaultContainer, path, self.getcachepath(path))
+            self.pathswritten.remove(path)
+
         return os.close(fh)
 
     def rename(self, old, new):
@@ -151,6 +198,7 @@ class Loopback(LoggingMixIn, Operations):
 
     def write(self, path, data, offset, fh):
         print("write " + path);
+        self.pathswritten.append(path)
         result = -1;
         with self.rwlock:
             os.lseek(fh, offset, 0)
@@ -160,21 +208,26 @@ class Loopback(LoggingMixIn, Operations):
 
 if __name__ == '__main__':
     import argparse
+    import json
+
+    with open('creds.json', 'r') as f:
+        creds = json.load(f)
+    csa = CloudStorageAccount(account_name=creds["accountname"], account_key=creds["accountkey"])
+
     parser = argparse.ArgumentParser()
     parser.add_argument('cache')
     parser.add_argument('mount')
     args = parser.parse_args()
     logging.basicConfig(level=logging.ERROR)
     fuse = FUSE(
-        Loopback(args.cache), args.mount, foreground=True, allow_other=True)
+        Loopback(args.cache, csa), args.mount, foreground=True, allow_other=True)
 
+    # use this for debugging.
     # args = { }
     # args["cache"] = "cache"
     # args["mount"] = "mount"
     # logging.basicConfig(level=logging.ERROR)
-    # fuse = FUSE(
-    #     Loopback(args["cache"]), args["mount"], foreground=True, allow_other=True)
-
-    # lp = Loopback("cache")
+    #
+    # lp = Loopback("cache", csa)
     # lp.readdir("", "as")
-    # lp.getattr("")
+    # lp.getattr("xp.txt")
