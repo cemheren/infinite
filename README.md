@@ -23,7 +23,7 @@ Download the latest release.
 3. For learning FUSE which is cool. 
 
 # how
-Fill-in your Azure storage credentials in the beginning of azurefiles.py. 
+Fill-in your Azure storage credentials in the beginning of creds.json. 
 Create mount and cache folders whereever in your filesystem. Run the azurefiles.py with mount and cache folder arguments. 
 > mkdir mount 
 
@@ -32,7 +32,7 @@ Create mount and cache folders whereever in your filesystem. Run the azurefiles.
 > sudo python3 azurefiles.py cache mount
 
 # is it stable? 
-No. I will make it much better in couple of weeks. 
+Somewhat. I wouldn't try it on anything you won't be ok with losing.  
 
 # notes
 This project is not affiliated with Microsoft or Azure. It's by any means not supported officially.
