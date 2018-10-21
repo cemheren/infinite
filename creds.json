@@ -1,4 +1,7 @@
 {
     "accountname" : "",
     "accountkey" : ""
+    "containername" : "default",
+    "mount" : "mount",
+    "cache" : "cache"
 }

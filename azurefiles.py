@@ -13,12 +13,12 @@ from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 from azure.storage.common import CloudStorageAccount
 
 class Loopback(LoggingMixIn, Operations):
-    def __init__(self, root, csa):
+    def __init__(self, root, csa, containername):
         self.root = realpath(root)
         self.rwlock = Lock()
         self.account = csa
         self.service = self.account.create_block_blob_service()
-        self.defaultContainer = "default"
+        self.defaultContainer = containername
 
         self.lastreadblobs = [];
         self.lastreadblobpaths = [];
@@ -207,27 +207,21 @@ class Loopback(LoggingMixIn, Operations):
 
 
 if __name__ == '__main__':
-    import argparse
     import json
 
     with open('creds.json', 'r') as f:
         creds = json.load(f)
     csa = CloudStorageAccount(account_name=creds["accountname"], account_key=creds["accountkey"])
+    containername = creds["containername"]
+    mount = creds["mount"]
+    cache = creds["cache"]
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('cache')
-    parser.add_argument('mount')
-    args = parser.parse_args()
     logging.basicConfig(level=logging.ERROR)
     fuse = FUSE(
-        Loopback(args.cache, csa), args.mount, foreground=True, allow_other=True)
+        Loopback(cache, csa, containername), mount, foreground=True, allow_other=True)
 
     # use this for debugging.
-    # args = { }
-    # args["cache"] = "cache"
-    # args["mount"] = "mount"
     # logging.basicConfig(level=logging.ERROR)
-    #
     # lp = Loopback("cache", csa)
     # lp.readdir("", "as")
     # lp.getattr("xp.txt")
